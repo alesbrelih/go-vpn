@@ -1,0 +1,56 @@
+services:
+  client:
+    build: ./
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: go run cmd/client/client.go
+    depends_on:
+      - server
+    privileged: true
+    networks:
+      publicnetwork:
+        ipv4_address: 10.5.0.4
+
+  server:
+    build: ./
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: go run cmd/server/server.go
+    privileged: true
+    networks:
+      publicnetwork:
+        ipv4_address: 10.5.0.5
+      vpnnetwork:
+        ipv4_address: 10.6.0.5
+  web:
+    build: ./
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: go run cmd/web/web.go
+    privileged: true
+    networks:
+      vpnnetwork:
+        ipv4_address: 10.6.0.10
+
+networks:
+  publicnetwork:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.5.0.0/16
+          gateway: 10.5.0.1
+  vpnnetwork:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.6.0.0/16
+          gateway: 10.6.0.1
+  clientnetwork:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.7.0.0/16
+          gateway: 10.7.0.1
