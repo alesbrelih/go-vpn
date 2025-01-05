@@ -3,6 +3,8 @@ package main
 import (
 	"alesbrelih/go-vpn/cmd/server/handler"
 	"alesbrelih/go-vpn/internal/network"
+	"flag"
+	"log"
 	"log/slog"
 	"os"
 )
@@ -11,6 +13,13 @@ func main() {
 	// TODO: from args
 	tunIP := "10.6.0.3/32"
 	port := ":6666"
+
+	logLevelFlag := flag.String("log-level", "WARN", "Set log level. Available options: INFO, WARN(default), ERROR")
+	flag.Parse()
+
+	var logLvl slog.Level
+	logLvl.UnmarshalText([]byte(*logLevelFlag))
+	slog.SetLogLoggerLevel(logLvl)
 
 	// TUN will serve to receive all traffic
 	// 1. VPN server gets packets
@@ -42,6 +51,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	handler.NewServer(ifce).
-		Run(port)
+	wg := handler.NewVPNServer(ifce).
+		Start(port)
+
+	log.Printf("server started @%s\n", port)
+
+	// this waits forver ATM
+	wg.Wait()
 }

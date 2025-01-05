@@ -38,16 +38,22 @@ type server struct {
 	connections *connections
 }
 
-func NewServer(ifce *water.Interface) *server {
+func NewVPNServer(ifce *water.Interface) *server {
 	return &server{
 		ifce:        ifce,
 		connections: NewConnections(),
 	}
 }
 
-func (s *server) Run(port string) {
+func (s *server) Start(port string) *sync.WaitGroup {
 	go s.startVPNListener(port)
-	s.startTUNListener()
+	go s.startTUNListener()
+
+	wg := &sync.WaitGroup{}
+
+	wg.Add(2)
+
+	return wg
 }
 
 func (s *server) startVPNListener(port string) {

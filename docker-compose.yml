@@ -4,7 +4,7 @@ services:
     working_dir: /app
     volumes:
       - ./:/app
-    command: go run cmd/client/client.go
+    command: go run cmd/client/main.go
     depends_on:
       - server
     privileged: true
@@ -17,7 +17,7 @@ services:
     working_dir: /app
     volumes:
       - ./:/app
-    command: go run cmd/server/server.go
+    command: go run cmd/server/main.go
     privileged: true
     networks:
       publicnetwork:
@@ -29,7 +29,7 @@ services:
     working_dir: /app
     volumes:
       - ./:/app
-    command: go run cmd/web/web.go
+    command: go run cmd/web/main.go
     privileged: true
     networks:
       vpnnetwork:
