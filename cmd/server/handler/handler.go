@@ -104,6 +104,7 @@ func (s *server) handleConnection(conn net.Conn) error {
 			if ipLayer := packet.Layer(layers.LayerTypeIPv4); ipLayer != nil {
 				ip, _ := ipLayer.(*layers.IPv4)
 
+				// TODO: move to handshake or even have an option to generate user config
 				s.connections.Add(ip.SrcIP.String(), conn)
 
 			}
