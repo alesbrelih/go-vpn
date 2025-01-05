@@ -2,10 +2,12 @@ package main
 
 import (
 	"alesbrelih/go-vpn/cmd/server/handler"
+	"alesbrelih/go-vpn/internal/certificates"
 	"alesbrelih/go-vpn/internal/network"
 	"flag"
 	"log"
 	"log/slog"
+	"net/http"
 	"os"
 )
 
@@ -54,7 +56,22 @@ func main() {
 	wg := handler.NewVPNServer(ifce).
 		Start(port)
 
-	log.Printf("server started @%s\n", port)
+	cert, priv, err := certificates.Generate()
+	slog.Error("got", "cert", cert, "priv", priv, "err", err)
+
+	log.Printf("TCP server started @%s\n", port)
+
+	handler := http.NewServeMux()
+
+	handler.HandleFunc("POST /certificate", func(w http.ResponseWriter, r *http.Request) {
+		certificates.Generate()
+	})
+	go func() {
+		if err := http.ListenAndServe(":8080", handler); err != nil && err != http.ErrServerClosed {
+			slog.Error("error starting server", "port", ":8080", "err", err)
+			os.Exit(1)
+		}
+	}()
 
 	// this waits forver ATM
 	wg.Wait()
