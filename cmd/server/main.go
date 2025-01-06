@@ -17,15 +17,26 @@ import (
 )
 
 func main() {
-	// TODO: from args
-	tunIP := "10.6.0.3/32"
-	port := ":6666"
-
-	logLevelFlag := flag.String("log-level", "WARN", "Set log level. Available options: INFO, WARN(default), ERROR")
+	logLevel := flag.String("log-level", "WARN", "Set log level. Available options: INFO, WARN(default), ERROR")
+	targetNetwork := flag.String("target-network", "", "Target network CIDR for the VPN server (clients connecting to this network via VPN)")
+	tunnelIP := flag.String("tunnel-ip", "10.6.0.3/32", "Tunnel IP inside target network")
+	clientNetwork := flag.String("client-network", "", "VPN client network CIDR")
+	vpnPort := flag.String("vpn-port", ":6666", "VPN port (format :6666)")
+	httpPort := flag.String("http-port", ":8080", "http port (format :8080)")
 	flag.Parse()
 
+	if *clientNetwork == "" {
+		slog.Error("Specify client network CIDR")
+		os.Exit(1)
+	}
+
+	if *targetNetwork == "" {
+		slog.Error("Specify target network CIDR")
+		os.Exit(1)
+	}
+
 	var logLvl slog.Level
-	logLvl.UnmarshalText([]byte(*logLevelFlag))
+	logLvl.UnmarshalText([]byte(*logLevel))
 	slog.SetLogLoggerLevel(logLvl)
 
 	// TUN will serve to receive all traffic
@@ -33,7 +44,7 @@ func main() {
 	// 2. Decodes them
 	// 3. Sends them to TUN
 	// 4. Machine routing takes over
-	ifce, err := network.CreateTUN(tunIP, network.DEFAULT_MTU)
+	ifce, err := network.CreateTUN(*tunnelIP, network.DEFAULT_MTU)
 	if err != nil {
 		slog.Error("could not create TUN interface", "err", err)
 		os.Exit(1)
@@ -52,7 +63,12 @@ func main() {
 	// Adding routing for the packet when it comes back as response
 	// So the client VPN range 10.7.0.0/24 will get routed to TUN0
 	// This will encrypt the package and send it over the wire
-	err = network.AddRoute("tun0", "10.7.0.0")
+	_, ipnet, err := net.ParseCIDR(*clientNetwork)
+	if err != nil {
+		slog.Error("could not parse client network CIDR", "network", *clientNetwork, "err", err)
+		os.Exit(1)
+	}
+	err = network.AddRoute("tun0", ipnet)
 	if err != nil {
 		slog.Error("error adding route from client subrange to tun0", "err", err)
 		os.Exit(1)
@@ -78,14 +94,13 @@ func main() {
 	}
 
 	wg := vpn.NewVPNServer(ifce, serverCert, caPool).
-		Start(port)
+		Start(*vpnPort)
 
-	log.Printf("TCP server started @%s\n", port)
+	log.Printf("TCP server started @%s\n", *vpnPort)
 
 	go func() {
-		httpport := ":8080"
-		log.Printf("HTTP server started @%s\n", httpport)
-		if err := http.ListenAndServe(httpport, handler.Handler()); err != nil && err != http.ErrServerClosed {
+		log.Printf("HTTP server started @%s\n", *httpPort)
+		if err := http.ListenAndServe(*httpPort, handler.Handler(*targetNetwork)); err != nil && err != http.ErrServerClosed {
 			slog.Error("error starting server", "port", ":8080", "err", err)
 			os.Exit(1)
 		}

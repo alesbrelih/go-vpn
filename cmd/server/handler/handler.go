@@ -12,7 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func Handler() http.Handler {
+func Handler(targetnetwork string) http.Handler {
 	handler := http.NewServeMux()
 
 	handler.HandleFunc("GET /certificate/{email}", func(w http.ResponseWriter, r *http.Request) {
@@ -29,7 +29,9 @@ func Handler() http.Handler {
 		buff := new(bytes.Buffer)
 		zipWriter := zip.NewWriter(buff)
 
-		config := certificates.Config{}
+		config := certificates.Config{
+			Network: targetnetwork,
+		}
 
 		filename := "key.pem"
 		config.Key = filename

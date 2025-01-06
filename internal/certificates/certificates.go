@@ -16,8 +16,9 @@ import (
 )
 
 type Config struct {
-	Key  string `yaml:"key"`
-	Cert string `yaml:"cert"`
+	Key     string `yaml:"key"`
+	Cert    string `yaml:"cert"`
+	Network string `yaml:"network"`
 }
 
 func Generate(commonName string, ipAddress net.IP) ([]byte, []byte, error) {

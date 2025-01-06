@@ -17,7 +17,7 @@ services:
     working_dir: /app
     volumes:
       - ./:/app
-    command: go run cmd/server/main.go
+    command: go run cmd/server/main.go -client-network 10.7.0.0/24 -target-network 10.6.0.0/24
     privileged: true
     ports:
       - 8080:8080

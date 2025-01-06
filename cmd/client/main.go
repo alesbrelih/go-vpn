@@ -10,6 +10,7 @@ import (
 	"flag"
 	"log"
 	"log/slog"
+	"net"
 	"os"
 	"path/filepath"
 
@@ -20,8 +21,6 @@ func main() {
 	// TODO: don't hardcode
 	tunIP := "10.7.0.3/32"
 	vpnIP := "10.5.0.5:6666"
-	targetSubnet := "10.6.0.0"
-	// TODO: mask should be dynamic
 
 	configFlag := flag.String("config", "", "Path to config file")
 	logLevelFlag := flag.String("log-level", "WARN", "Set log level. Available options: INFO, WARN(default), ERROR")
@@ -76,7 +75,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = network.AddRoute(ifce.Name(), targetSubnet)
+	_, ipnet, err := net.ParseCIDR(cfg.Network)
+	err = network.AddRoute(ifce.Name(), ipnet)
 	if err != nil {
 		slog.Error("error setting route", "err", err)
 		os.Exit(1)

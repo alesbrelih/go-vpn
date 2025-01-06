@@ -50,7 +50,7 @@ func CreateTUN(ip string, mtu int) (*water.Interface, error) {
 	return ifce, nil
 }
 
-func AddRoute(link string, address string) error {
+func AddRoute(link string, destination *net.IPNet) error {
 	tun, err := netlink.LinkByName(link)
 	if err != nil {
 		return fmt.Errorf("could not find TUN interface; name: %s: err: %w", link, err)
@@ -58,7 +58,7 @@ func AddRoute(link string, address string) error {
 
 	route := &netlink.Route{
 		LinkIndex: tun.Attrs().Index,
-		Dst:       &net.IPNet{IP: net.ParseIP(address), Mask: net.CIDRMask(24, 32)}, // Destination network
+		Dst:       destination,
 	}
 
 	return netlink.RouteAdd(route)
