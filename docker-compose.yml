@@ -4,7 +4,7 @@ services:
     working_dir: /app
     volumes:
       - ./:/app
-    command: go run cmd/client/main.go
+    command: go run cmd/client/main.go -config ./test/client-config/ales-vpn.config
     depends_on:
       - server
     privileged: true
@@ -19,6 +19,8 @@ services:
       - ./:/app
     command: go run cmd/server/main.go
     privileged: true
+    ports:
+      - 8080:8080
     networks:
       publicnetwork:
         ipv4_address: 10.5.0.5

@@ -2,11 +2,16 @@ package main
 
 import (
 	"alesbrelih/go-vpn/cmd/server/handler"
+	"alesbrelih/go-vpn/cmd/server/vpn"
 	"alesbrelih/go-vpn/internal/certificates"
 	"alesbrelih/go-vpn/internal/network"
+	"alesbrelih/go-vpn/resources/ca"
+	"crypto/tls"
+	"crypto/x509"
 	"flag"
 	"log"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 )
@@ -53,21 +58,34 @@ func main() {
 		os.Exit(1)
 	}
 
-	wg := handler.NewVPNServer(ifce).
-		Start(port)
+	cert, priv, err := certificates.Generate("VPN server", net.ParseIP("10.5.0.5"))
+	if err != nil {
+		slog.Error("could not generate server certificate", "err", err)
+		os.Exit(1)
+	}
 
-	cert, priv, err := certificates.Generate()
-	slog.Error("got", "cert", cert, "priv", priv, "err", err)
+	serverCert, err := tls.X509KeyPair(cert, priv)
+	if err != nil {
+		slog.Error("could not create x509 keypair", "err", err)
+		os.Exit(1)
+	}
+
+	caPool := x509.NewCertPool()
+	ok := caPool.AppendCertsFromPEM(ca.CertPEM)
+	if !ok {
+		slog.Error("could not load CA")
+		os.Exit(1)
+	}
+
+	wg := vpn.NewVPNServer(ifce, serverCert, caPool).
+		Start(port)
 
 	log.Printf("TCP server started @%s\n", port)
 
-	handler := http.NewServeMux()
-
-	handler.HandleFunc("POST /certificate", func(w http.ResponseWriter, r *http.Request) {
-		certificates.Generate()
-	})
 	go func() {
-		if err := http.ListenAndServe(":8080", handler); err != nil && err != http.ErrServerClosed {
+		httpport := ":8080"
+		log.Printf("HTTP server started @%s\n", httpport)
+		if err := http.ListenAndServe(httpport, handler.Handler()); err != nil && err != http.ErrServerClosed {
 			slog.Error("error starting server", "port", ":8080", "err", err)
 			os.Exit(1)
 		}

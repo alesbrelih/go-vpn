@@ -2,11 +2,18 @@ package main
 
 import (
 	"alesbrelih/go-vpn/cmd/client/client"
+	"alesbrelih/go-vpn/internal/certificates"
 	"alesbrelih/go-vpn/internal/network"
+	"alesbrelih/go-vpn/resources/ca"
+	"crypto/tls"
+	"crypto/x509"
 	"flag"
 	"log"
 	"log/slog"
 	"os"
+	"path/filepath"
+
+	"gopkg.in/yaml.v3"
 )
 
 func main() {
@@ -16,8 +23,41 @@ func main() {
 	targetSubnet := "10.6.0.0"
 	// TODO: mask should be dynamic
 
+	configFlag := flag.String("config", "", "Path to config file")
 	logLevelFlag := flag.String("log-level", "WARN", "Set log level. Available options: INFO, WARN(default), ERROR")
 	flag.Parse()
+
+	if *configFlag == "" {
+		slog.Error("Config is required. Use -config to specify path to config file")
+		os.Exit(1)
+	}
+
+	config, err := os.ReadFile(*configFlag)
+	if err != nil {
+		slog.Error("could not read config", "path", *configFlag, "err", err)
+		os.Exit(1)
+	}
+
+	cfg := certificates.Config{}
+	err = yaml.Unmarshal(config, &cfg)
+	if err != nil {
+		slog.Error("could not unmarshal config", "config", config)
+		os.Exit(1)
+	}
+
+	caCertPool := x509.NewCertPool()
+	ok := caCertPool.AppendCertsFromPEM(ca.CertPEM)
+	if !ok {
+		slog.Error("could not load CA")
+		os.Exit(1)
+	}
+
+	dir := filepath.Dir(*configFlag)
+	cert, err := tls.LoadX509KeyPair(filepath.Join(dir, cfg.Cert), filepath.Join(dir, cfg.Key))
+	if err != nil {
+		slog.Error("could not load 509 key par", "err", err)
+		os.Exit(1)
+	}
 
 	var logLvl slog.Level
 	logLvl.UnmarshalText([]byte(*logLevelFlag))
@@ -42,7 +82,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	wg, err := client.NewVPNClient(ifce).Start(vpnIP)
+	wg, err := client.NewVPNClient(ifce, cert, caCertPool).Start(vpnIP)
 	if err != nil {
 		slog.Error("could not create the client", "err", err)
 		os.Exit(1)

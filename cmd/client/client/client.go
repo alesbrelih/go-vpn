@@ -2,6 +2,8 @@ package client
 
 import (
 	"alesbrelih/go-vpn/internal/network"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"fmt"
 	"log/slog"
@@ -14,14 +16,18 @@ import (
 	"github.com/songgao/water"
 )
 
-func NewVPNClient(ifce *water.Interface) *Client {
+func NewVPNClient(ifce *water.Interface, cert tls.Certificate, certPool *x509.CertPool) *Client {
 	return &Client{
-		ifce: ifce,
+		ifce:     ifce,
+		cert:     cert,
+		certPool: certPool,
 	}
 }
 
 type Client struct {
-	ifce *water.Interface
+	ifce     *water.Interface
+	cert     tls.Certificate
+	certPool *x509.CertPool
 }
 
 func (c *Client) Start(vpnServerIP string) (*sync.WaitGroup, error) {
@@ -33,13 +39,17 @@ func (c *Client) Start(vpnServerIP string) (*sync.WaitGroup, error) {
 			return nil, fmt.Errorf("vpn server unreachable; ip: %s", vpnServerIP)
 		}
 
-		conn, err = net.Dial("tcp", vpnServerIP)
+		conn, err = tls.Dial("tcp", vpnServerIP, &tls.Config{
+			Certificates: []tls.Certificate{c.cert},
+			RootCAs:      c.certPool,
+		})
 		if err != nil {
 			slog.Error("could not establish connection to vpn", "err", err)
 			<-time.Tick(3 * time.Second)
 		} else {
 			break
 		}
+
 	}
 
 	slog.Info("successfully added route")

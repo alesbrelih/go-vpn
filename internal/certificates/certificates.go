@@ -11,10 +11,16 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net"
 	"time"
 )
 
-func Generate() ([]byte, []byte, error) {
+type Config struct {
+	Key  string `yaml:"key"`
+	Cert string `yaml:"cert"`
+}
+
+func Generate(commonName string, ipAddress net.IP) ([]byte, []byte, error) {
 	caCertPEMDecoded, _ := pem.Decode(ca.CertPEM)
 	if caCertPEMDecoded == nil {
 		return nil, nil, errors.New("could not PEM decode the cert")
@@ -43,12 +49,16 @@ func Generate() ([]byte, []byte, error) {
 	certTemplate := &x509.Certificate{
 		SerialNumber: big.NewInt(time.Now().UnixNano()),
 		Subject: pkix.Name{
-			CommonName: "govpn server",
+			CommonName: commonName,
 		},
 		NotBefore:   time.Now(),
 		NotAfter:    time.Now().AddDate(10, 0, 0),
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:    x509.KeyUsageDigitalSignature,
+	}
+
+	if ipAddress != nil {
+		certTemplate.IPAddresses = []net.IP{ipAddress}
 	}
 
 	certDER, err := x509.CreateCertificate(rand.Reader, certTemplate, caCert, &certKey.PublicKey, caKey)
